@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Camino del Empresario</title>
+    <style>
+        /* General */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background-image: url('https://cdn.pixabay.com/photo/2020/07/01/12/58/landscape-5358783_1280.jpg');
+            background-size: cover;
+            background-position: center;
+            border: 2px solid #2c3e50;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #player {
+            position: absolute;
+            bottom: 20px;
+            left: 50px;
+            width: 40px;
+            height: 60px;
+            background-image: url('https://cdn-icons-png.flaticon.com/512/1424/1424453.png');
+            background-size: cover;
+            transition: all 0.1s ease;
+        }
+
+        .money, .investment, .obstacle {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .money {
+            background-image: url('https://cdn-icons-png.flaticon.com/512/1828/1828884.png');
+            background-size: cover;
+        }
+
+        .investment {
+            background-image: url('https://cdn-icons-png.flaticon.com/512/3062/3062634.png');
+            background-size: cover;
+        }
+
+        .obstacle {
+            background-image: url('https://cdn-icons-png.flaticon.com/512/3096/3096689.png');
+            background-size: cover;
+        }
+
+        #game-info {
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        #game-info p {
+            margin: 5px;
+            font-size: 1.2rem;
+        }
+
+        #game-over {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #restart-btn {
+            padding: 10px 20px;
+            font-size: 1em;
+            color: white;
+            background-color: #c0392b;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #restart-btn:hover {
+            background-color: #a93226;
+        }
+
+        .appear {
+            animation: appear 1s ease-in-out;
+        }
+
+        @keyframes appear {
+            0% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <h1>El Camino del Empresario</h1>
+    <div id="game-container">
+        <div id="player"></div>
+    </div>
+    <div id="game-info">
+        <p><strong>Dinero recolectado:</strong> $<span id="money-collected">0</span></p>
+        <p><strong>Inversiones:</strong> $<span id="investment-total">0</span></p>
+        <p><strong>Tiempo restante:</strong> <span id="timer">60</span> segundos</p>
+
+    </div>
+    <div id="game-over">
+        <h2>¡Juego terminado!</h2>
+        <p id="result-message"></p>
+        <button id="restart-btn">Reiniciar</button>
+    </div>
+
+
+    <script>
+        const player = document.getElementById("player");
+        const gameContainer = document.getElementById("game-container");
+        const moneyCollectedDisplay = document.getElementById("money-collected");
+        const investmentTotalDisplay = document.getElementById("investment-total");
+        const gameOverDisplay = document.getElementById("game-over");
+        const resultMessage = document.getElementById("result-message");
+        const restartBtn = document.getElementById("restart-btn");
+
+        let moneyCollected = 0;
+        let investmentTotal = 0;
+        let isGameOver = false;
+
+        // Movimiento del jugador con las flechas
+        document.addEventListener("keydown", (event) => {
+            if (isGameOver) return;
+
+            const key = event.key;
+            if (key === "ArrowUp" && playerY > 0) {
+                playerY -= 20; // Arriba
+            } else if (key === "ArrowDown" && playerY < containerHeight - playerHeight) {
+                playerY += 20; // Abajo
+            } else if (key === "ArrowLeft" && playerX > 0) {
+                playerX -= 20; // Izquierda
+            } else if (key === "ArrowRight" && playerX < containerWidth - playerWidth) {
+                playerX += 20; // Derecha
+            }
+
+            // Actualizar posición del jugador
+            player.style.left = `${playerX}px`;
+            player.style.top = `${playerY}px`;
+            
+        });
+
+        // Generar elementos del juego (dinero, inversiones, obstáculos)
+        function generateElement(type) {
+            const element = document.createElement("div");
+            element.classList.add(type, "appear");
+            element.style.left = `${Math.random() * (containerWidth - 50)}px`;
+            element.style.top = `${Math.random() * (containerHeight - 50)}px`;
+            gameContainer.appendChild(element);
+
+            setTimeout(() => element.remove(), 3000);
+        }
+
+        // Detectar colisiones
+        function checkCollisions() {
+            const playerRect = player.getBoundingClientRect();
+            document.querySelectorAll(".money, .investment, .obstacle").forEach((element) => {
+                const elementRect = element.getBoundingClientRect();
+
+                if (
+                    playerRect.left < elementRect.right &&
+                    playerRect.right > elementRect.left &&
+                    playerRect.top < elementRect.bottom &&
+                    playerRect.bottom > elementRect.top
+                ) {
+                    if (element.classList.contains("money")) {
+                        moneyCollected += 100;
+                        moneyCollectedDisplay.textContent = moneyCollected;
+                    } else if (element.classList.contains("investment")) {
+                        if (moneyCollected >= 200) {
+                            moneyCollected -= 200;
+                            investmentTotal += 200;
+                            investmentTotalDisplay.textContent = investmentTotal;
+                            moneyCollectedDisplay.textContent = moneyCollected;
+                        } else {
+                            alert("No tienes suficiente dinero para invertir.");
+                        }
+                    } else if (element.classList.contains("obstacle")) {
+                        moneyCollected -= 100;
+                        moneyCollectedDisplay.textContent = moneyCollected;
+                        alert("¡Cuidado! Has tocado un obstáculo.");
+                    }
+                    element.remove();
+                }
+            });
+        }
+
+ 
+ // Timer
+        const countdown = setInterval(() => {
+            if (isGameOver) return;
+            let timeRemaining = 300; // 5 minutos en segundos
+            timerDisplay.textContent = timeRemaining;
+            
+
+            if (timeRemaining <= 0) {
+                clearInterval(countdown);
+                endGame();
+            }
+        }, 1000);
+<script>
+        const player = document.getElementById("player");
+        // ... (resto de tus variables)
+
+        let timeRemaining = 300; // 5 minutos en segundos
+        const timerDisplay = document.getElementById("timer");
+
+        // ... (resto de tu código)
+
+        // Función para actualizar el temporizador y verificar si se acabó el tiempo
+        function updateTimer() {
+            if (isGameOver) return;
+            timeRemaining--;
+            timerDisplay.textContent = timeRemaining;
+
+            if (timeRemaining <= 0) {
+                clearInterval(countdownInterval);
+                endGame();
+            }
+
+            // Mostrar advertencia cuando queden 30 segundos
+            if (timeRemaining <= 30) {
+                alert("¡Te quedan pocos segundos!");
+            }
+        }
+
+        // Intervalo para actualizar el temporizador
+        const countdownInterval = setInterval(updateTimer, 1000);
+
+        }
+
+        // Posición inicial del jugador
+        let playerX = 50;
+        let playerY = 360
+
+        // Dimensiones del contenedor
+        const containerWidth = 800;
+        const containerHeight = 400;
+        const playerWidth = 40;
+        const playerHeight = 60;
+
+        // Terminar el juego
+        function endGame() {
+            isGameOver = true;
+            gameOverDisplay.style.display = "block";
+
+            if (investmentTotal >= 1000) {
+                resultMessage.textContent = `¡Felicidades! Lograste invertir $${investmentTotal} y tienes una empresa exitosa.`;
+            } else {
+                resultMessage.textContent = `Inversiones insuficientes ($${investmentTotal}). Intenta invertir más la próxima vez.`;
+            }
+        }
+
+        // Iniciar el juego
+        function startGame() {
+            isGameOver = false;
+            moneyCollected = 0;
+            investmentTotal = 0;
+            moneyCollectedDisplay.textContent = "0";
+            investmentTotalDisplay.textContent = "0";
+            gameOverDisplay.style.display = "none";
+
+            player.style.left = "50px";
+            player.style.top = "360px";
+
+            // Generar elementos cada 500ms
+            setInterval(() => {
+                if (isGameOver) return;
+                generateElement("money");
+                generateElement("investment");
+                generateElement("obstacle");
+                checkCollisions();
+            }, 500);
+        }
+
+        restartBtn.addEventListener("click", startGame);
+
+        // Comienza el juego al cargar
+        startGame();
+    </script>
+</body>
+
+</html>
